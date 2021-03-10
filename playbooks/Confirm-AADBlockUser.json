@@ -7,7 +7,7 @@
                     "body": "@triggerBody()?['Entities']",
                     "host": {
                         "connection": {
-                            "name": "@parameters('$connections')['azuresentinel_1']['connectionId']"
+                            "name": "@parameters('$connections')['AzureSentinel']['connectionId']"
                         }
                     },
                     "method": "post",
@@ -48,7 +48,7 @@
                             },
                             "host": {
                                 "connection": {
-                                    "name": "@parameters('$connections')['office365_1']['connectionId']"
+                                    "name": "@parameters('$connections')['office365']['connectionId']"
                                 }
                             },
                             "path": "/mailwithoptions/$subscriptions"
@@ -62,16 +62,16 @@
                     },
                     "Switch": {
                         "cases": {
-                            "Case_-_Confirm_Compromised": {
+                            "Case_-_Block_Account": {
                                 "actions": {
                                     "Add_comment_to_incident_(V2)": {
                                         "inputs": {
                                             "body": {
-                                                "Value": "The user @{if(greater(length(items('For_each')?['AadUserId']), 0), items('For_each')?['AadUserId'], items('For_each')?['UPNSuffix']) } confirmed as compromised in Azure AD Identity Protection."
+                                                "Value": "The user @{concat(items('For_each')?['Name'], '@', items('for_each')?['UPNSuffix'])} confirmed as compromised and blocked in Azure AD."
                                             },
                                             "host": {
                                                 "connection": {
-                                                    "name": "@parameters('$connections')['azuresentinel_1']['connectionId']"
+                                                    "name": "@parameters('$connections')['AzureSentinel']['connectionId']"
                                                 }
                                             },
                                             "method": "put",
@@ -103,16 +103,16 @@
                                 },
                                 "case": "Block Account"
                             },
-                            "Case_-_Dismiss_Risky_User": {
+                            "Case_-_Unblock_Account": {
                                 "actions": {
                                     "Add_comment_to_incident_(V2)_2": {
                                         "inputs": {
                                             "body": {
-                                                "Value": "The user @{if(greater(length(items('For_each')?['AadUserId']), 0), items('For_each')?['AadUserId'], items('For_each')?['UPNSuffix']) } dismissed in Azure AD Identity Protection."
+                                                "Value": "The user @{concat(items('For_each')?['Name'], '@', items('for_each')?['UPNSuffix'])} confirmed as not compromised and unlocked in Azure AD."
                                             },
                                             "host": {
                                                 "connection": {
-                                                    "name": "@parameters('$connections')['azuresentinel_1']['connectionId']"
+                                                    "name": "@parameters('$connections')['AzureSentinel']['connectionId']"
                                                 }
                                             },
                                             "method": "put",
@@ -172,7 +172,7 @@
                         {
                             "name": "SocEmailAddress",
                             "type": "string",
-                            "value": "lukasb@lukasbpfe.eu"
+                            "value": "<email>@<domain>"
                         }
                     ]
                 },
@@ -196,7 +196,7 @@
                     },
                     "host": {
                         "connection": {
-                            "name": "@parameters('$connections')['azuresentinel_1']['connectionId']"
+                            "name": "@parameters('$connections')['AzureSentinel']['connectionId']"
                         }
                     },
                     "path": "/subscribe"
@@ -208,20 +208,10 @@
     "parameters": {
         "$connections": {
             "value": {
-                "azuread": {
-                    "connectionId": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/resourceGroups/sentinel/providers/Microsoft.Web/connections/azuread-Block-AADUser",
-                    "connectionName": "azuread-Block-AADUser",
-                    "id": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/providers/Microsoft.Web/locations/westeurope/managedApis/azuread"
-                },
-                "azuresentinel_1": {
-                    "connectionId": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/resourceGroups/sentinel/providers/Microsoft.Web/connections/azuresentinel",
-                    "connectionName": "azuresentinel",
-                    "id": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/providers/Microsoft.Web/locations/westeurope/managedApis/azuresentinel"
-                },
-                "office365_1": {
-                    "connectionId": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/resourceGroups/sentinel/providers/Microsoft.Web/connections/teamsIdentityProtection-EmailResponse",
-                    "connectionName": "teamsIdentityProtection-EmailResponse",
-                    "id": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/providers/Microsoft.Web/locations/westeurope/managedApis/office365"
+                "AzureSentinel": {
+                    "connectionId": "[resourceId('Microsoft.Web/connections', variables('AzureSentinelConnectionName'))]",
+                    "connectionName": "AzureSentinel",
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/azuresentinel')]"
                 }
             }
         }
