@@ -1,0 +1,229 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Alert_-_Get_accounts": {
+                "inputs": {
+                    "body": "@triggerBody()?['Entities']",
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel_1']['connectionId']"
+                        }
+                    },
+                    "method": "post",
+                    "path": "/entities/account"
+                },
+                "runAfter": {
+                    "Initialize_variable_-_SOC_email_address": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "For_each": {
+                "actions": {
+                    "Create_HTML_table_-_Account": {
+                        "inputs": {
+                            "format": "HTML",
+                            "from": "@array(items('For_each'))"
+                        },
+                        "runAfter": {},
+                        "type": "Table"
+                    },
+                    "Send_email_with_options": {
+                        "inputs": {
+                            "body": {
+                                "Message": {
+                                    "Body": "<p><span style=\\\"font-size: 14px\\\"><strong>New Azure Sentinel alert<br></strong></span><span style=\\\"font-size: 14px\\\"><br></span><span style=\\\"font-size: 12px\\\"><strong>Alert display name: </strong></span><span style=\\\"font-size: 12px\\\">&nbsp;</span><span style=\\\"font-size: 12px\\\">@{triggerBody()?['AlertDisplayName']}</span><span style=\\\"font-size: 12px\\\"><br></span><span style=\\\"font-size: 12px\\\"><strong>Alert provider: </strong></span><span style=\\\"font-size: 12px\\\"></span><span style=\\\"font-size: 12px\\\">@{triggerBody()?['ProductName']}</span><span style=\\\"font-size: 12px\\\"><br></span><span style=\\\"font-size: 12px\\\">@{triggerBody()?['Description']}<br><br><span style=\\\"font-size: 14px\\\">The following account was found in the alert:<br></span>@{body('Create_HTML_table_-_Account')}<span style=\\\"font-size: 14px\\\"></span>",
+                                    "HideHTMLMessage": false,
+                                    "Importance": "High",
+                                    "Options": "Block Account, Unblock Account, Ignore",
+                                    "SelectionText": "<span style=\\\"font-size: 14px\\\"><strong>Should this account be blocked in Azure AD?</strong></span>",
+                                    "ShowHTMLConfirmationDialog": false,
+                                    "Subject": "Respond to compromised user in Azure Sentinel alert",
+                                    "To": "@variables('SocEmailAddress')",
+                                    "UseOnlyHTMLMessage": true
+                                },
+                                "NotificationUrl": "@{listCallbackUrl()}"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['office365_1']['connectionId']"
+                                }
+                            },
+                            "path": "/mailwithoptions/$subscriptions"
+                        },
+                        "runAfter": {
+                            "Create_HTML_table_-_Account": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnectionWebhook"
+                    },
+                    "Switch": {
+                        "cases": {
+                            "Case_-_Confirm_Compromised": {
+                                "actions": {
+                                    "Add_comment_to_incident_(V2)": {
+                                        "inputs": {
+                                            "body": {
+                                                "Value": "The user @{if(greater(length(items('For_each')?['AadUserId']), 0), items('For_each')?['AadUserId'], items('For_each')?['UPNSuffix']) } confirmed as compromised in Azure AD Identity Protection."
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuresentinel_1']['connectionId']"
+                                                }
+                                            },
+                                            "method": "put",
+                                            "path": "/Comment/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/@{encodeURIComponent('Alert')}/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}"
+                                        },
+                                        "runAfter": {
+                                            "Update_user": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Update_user": {
+                                        "inputs": {
+                                            "body": {
+                                                "accountEnabled": false
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuread']['connectionId']"
+                                                }
+                                            },
+                                            "method": "patch",
+                                            "path": "/v1.0/users/@{encodeURIComponent(concat(items('For_each')?['Name'], '@', items('for_each')?['UPNSuffix']))}"
+                                        },
+                                        "runAfter": {},
+                                        "type": "ApiConnection"
+                                    }
+                                },
+                                "case": "Block Account"
+                            },
+                            "Case_-_Dismiss_Risky_User": {
+                                "actions": {
+                                    "Add_comment_to_incident_(V2)_2": {
+                                        "inputs": {
+                                            "body": {
+                                                "Value": "The user @{if(greater(length(items('For_each')?['AadUserId']), 0), items('For_each')?['AadUserId'], items('For_each')?['UPNSuffix']) } dismissed in Azure AD Identity Protection."
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuresentinel_1']['connectionId']"
+                                                }
+                                            },
+                                            "method": "put",
+                                            "path": "/Comment/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/@{encodeURIComponent('Alert')}/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}"
+                                        },
+                                        "runAfter": {
+                                            "Update_user_2": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Update_user_2": {
+                                        "inputs": {
+                                            "body": {
+                                                "accountEnabled": true
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuread']['connectionId']"
+                                                }
+                                            },
+                                            "method": "patch",
+                                            "path": "/v1.0/users/@{encodeURIComponent(concat(items('For_each')?['Name'], '@', items('for_each')?['UPNSuffix']))}"
+                                        },
+                                        "runAfter": {},
+                                        "type": "ApiConnection"
+                                    }
+                                },
+                                "case": "Unblock Account"
+                            }
+                        },
+                        "default": {
+                            "actions": {}
+                        },
+                        "expression": "@body('Send_email_with_options')?['SelectedOption']",
+                        "runAfter": {
+                            "Send_email_with_options": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Switch"
+                    }
+                },
+                "description": "This loop iterates over all entities of type Account found in this alert",
+                "foreach": "@body('Alert_-_Get_accounts')?['Accounts']",
+                "runAfter": {
+                    "Alert_-_Get_accounts": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Foreach"
+            },
+            "Initialize_variable_-_SOC_email_address": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "SocEmailAddress",
+                            "type": "string",
+                            "value": "lukasb@lukasbpfe.eu"
+                        }
+                    ]
+                },
+                "runAfter": {},
+                "type": "InitializeVariable"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "When_a_response_to_an_Azure_Sentinel_alert_is_triggered": {
+                "inputs": {
+                    "body": {
+                        "callback_url": "@{listCallbackUrl()}"
+                    },
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel_1']['connectionId']"
+                        }
+                    },
+                    "path": "/subscribe"
+                },
+                "type": "ApiConnectionWebhook"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "azuread": {
+                    "connectionId": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/resourceGroups/sentinel/providers/Microsoft.Web/connections/azuread-Block-AADUser",
+                    "connectionName": "azuread-Block-AADUser",
+                    "id": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/providers/Microsoft.Web/locations/westeurope/managedApis/azuread"
+                },
+                "azuresentinel_1": {
+                    "connectionId": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/resourceGroups/sentinel/providers/Microsoft.Web/connections/azuresentinel",
+                    "connectionName": "azuresentinel",
+                    "id": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/providers/Microsoft.Web/locations/westeurope/managedApis/azuresentinel"
+                },
+                "office365_1": {
+                    "connectionId": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/resourceGroups/sentinel/providers/Microsoft.Web/connections/teamsIdentityProtection-EmailResponse",
+                    "connectionName": "teamsIdentityProtection-EmailResponse",
+                    "id": "/subscriptions/38127362-bd12-44dc-aa71-42fd33c1c956/providers/Microsoft.Web/locations/westeurope/managedApis/office365"
+                }
+            }
+        }
+    }
+}
