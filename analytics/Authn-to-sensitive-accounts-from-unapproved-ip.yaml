@@ -1,0 +1,37 @@
+id: 77c8438d-9fea-46b8-ae58-3c2b641a16b2
+name: Detect sign-ins to sensitive accounts from unapproved IP
+description: |
+  'Detects sign-ins to sensitive accounts in Azure AD from unapproved IP addresses. Sensitive accounts and its approved IP addresses are defined in Watchlist with the name of SensitiveUsersIPs.
+  Watchlist expected headers are User (defined as Azure AD Object ID) and IPAddress with approved IP address for the user.'
+severity: Medium
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - SigninLogs
+queryFrequency: 1d
+queryPeriod: 1d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - InitialAccess
+relevantTechniques:
+  - T1189
+query: |
+    let UsersInWatchlist = _GetWatchlist('SensitiveUsersIPs') | project User;
+    let watchlist = _GetWatchlist('SensitiveUsersIPs')
+    | project IPAddress, User
+    | extend identity = strcat(IPAddress, "-", User)
+    | distinct identity;
+    SigninLogs
+    | where UserId in (UsersInWatchlist)
+    | extend identity = strcat(IPAddress, "-", UserId)
+    | where identity !in (watchlist)
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: AadUserId
+        columnName: UserId
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: IPAddress
