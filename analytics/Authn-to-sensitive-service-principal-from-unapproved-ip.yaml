@@ -1,0 +1,33 @@
+id: 5e2834a3-dd4e-4987-b454-a00c4c71b4bb
+name: Detect usage of Service Principals from unapproved IP
+description: |
+  'Detects sign-ins to service principals in Azure AD from unapproved IP addresses. Service principals and its approved IP addresses are defined in Watchlist with the name of SensitiveServicePrincipalsIPs.
+  Watchlist expected headers are App (defined as Azure AD Object ID) and IPAddress with approved IP address for the user.'
+severity: High
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - AADServicePrincipalSignInLogs
+queryFrequency: 1d
+queryPeriod: 1d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - InitialAccess
+relevantTechniques:
+  - T1189
+query: |
+    let PrincipalsInWatchlist = _GetWatchlist('SensitiveServicePrincipalsIPs') | project App;
+    let watchlist = _GetWatchlist('SensitiveServicePrincipalsIPs')
+    | project IPAddress, App
+    | extend identity = strcat(IPAddress, "-", App)
+    | distinct identity;
+    AADServicePrincipalSignInLogs
+    | where ServicePrincipalId in (PrincipalsInWatchlist)
+    | extend identity = strcat(IPAddress, "-", AppId)
+    | where identity !in (watchlist)
+entityMappings:
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: IPAddress
