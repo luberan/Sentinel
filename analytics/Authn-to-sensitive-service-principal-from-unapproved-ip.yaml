@@ -27,6 +27,10 @@ query: |
     | extend identity = strcat(IPAddress, "-", AppId)
     | where identity !in (watchlist)
 entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: ServicePrincipalName
   - entityType: IP
     fieldMappings:
       - identifier: Address
