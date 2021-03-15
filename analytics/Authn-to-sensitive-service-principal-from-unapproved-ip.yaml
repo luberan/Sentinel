@@ -17,14 +17,14 @@ tactics:
 relevantTechniques:
   - T1189
 query: |
-    let PrincipalsInWatchlist = _GetWatchlist('SensitiveServicePrincipalsIPs') | project App;
+    let PrincipalsInWatchlist = _GetWatchlist('SensitiveServicePrincipalsIPs') | project ServicePrincipalId;
     let watchlist = _GetWatchlist('SensitiveServicePrincipalsIPs')
-    | project IPAddress, App
-    | extend identity = strcat(IPAddress, "-", App)
+    | project IPAddress, ServicePrincipalId
+    | extend identity = strcat(IPAddress, "-", ServicePrincipalId)
     | distinct identity;
     AADServicePrincipalSignInLogs
     | where ServicePrincipalId in (PrincipalsInWatchlist)
-    | extend identity = strcat(IPAddress, "-", AppId)
+    | extend identity = strcat(IPAddress, "-", ServicePrincipalId)
     | where identity !in (watchlist)
 entityMappings:
   - entityType: Account
